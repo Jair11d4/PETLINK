@@ -1,100 +1,115 @@
 const express = require('express');
 const app = express();
-const port = 3000;  
+const port = 3000;
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+
+let mascotas = [
+  { serial: 1001, nombre: "Luna", raza: "Labrador", edad: 3, dueño: "Ana", contacto: 3254855896 },
+  { serial: 1002, nombre: "Rocky", raza: "Bulldog", edad: 4, dueño: "Carlos", contacto: 3115458976 },
+  { serial: 1003, nombre: "Milo", raza: "Beagle", edad: 2, dueño: "Laura", contacto: 3106245547 },
+  { serial: 1004, nombre: "Nala", raza: "Golden Retriever", edad: 5, dueño: "Diego", contacto: 3124782143 },
+  { serial: 1005, nombre: "Coco", raza: "Poodle", edad: 1, dueño: "Sofía", contacto: 3209541506 }
+];
+
+let ubicaciones = [
+  { serial: 1001, lat: 4.710989, lon: -74.072092, horaTransmision: "10:15 AM", enMovimiento: true },
+  { serial: 1002, lat: 4.748116, lon: -74.056753, horaTransmision: "10:10 AM", enMovimiento: false },
+  { serial: 1003, lat: 4.667897, lon: -74.057123, horaTransmision: "10:18 AM", enMovimiento: true },
+  { serial: 1004, lat: 4.732564, lon: -74.080231, horaTransmision: "10:12 AM", enMovimiento: false },
+  { serial: 1005, lat: 4.721223, lon: -74.069951, horaTransmision: "10:20 AM", enMovimiento: true }
+];
+
+let ubicacionesPerdidas = [
+  { serial: 2001, lat: 4.658222, lon: -74.093333, horaTransmision: "09:58 AM", enMovimiento: true },
+  { serial: 2002, lat: 4.723444, lon: -74.049882, horaTransmision: "09:45 AM", enMovimiento: false },
+  { serial: 2003, lat: 4.699112, lon: -74.078120, horaTransmision: "09:51 AM", enMovimiento: true },
+  { serial: 2004, lat: 4.740500, lon: -74.060321, horaTransmision: "10:00 AM", enMovimiento: false },
+  { serial: 2005, lat: 4.706332, lon: -74.067772, horaTransmision: "09:53 AM", enMovimiento: true }
+];
+
+let estadoCollares = [
+  { serial: 1001, hiloConductor: true, sensorMagnetico: true, antenasOk: true },
+  { serial: 1002, hiloConductor: true, sensorMagnetico: false, antenasOk: true },
+  { serial: 1003, hiloConductor: false, sensorMagnetico: true, antenasOk: true },
+  { serial: 1004, hiloConductor: true, sensorMagnetico: true, antenasOk: false },
+  { serial: 1005, hiloConductor: true, sensorMagnetico: true, antenasOk: true }
+];
+
+
 app.get('/', (req, res) => {
-var payload = {
-    mensaje: "Hola Mundo!",  
-  }
-
-  res.send(payload);
+  res.send({ mensaje: "Servidor PetLink activo " });
 });
 
 
-app.get('/hora', (req, res) => {
-console.log(req);
-
-var payload = {
-
-    mensaje: "Hola Mundo!",  
-    hora: new Date().toLocaleTimeString()     
+app.get('/pet', (req, res) => {
+  const serial = parseInt(req.query.serial);
+  if (serial) {
+    const mascota = mascotas.find(m => m.serial === serial);
+    if (!mascota) return res.status(404).json({ mensaje: "Mascota no encontrada " });
+    return res.json({ mensaje: "Información de mascota encontrada ", mascota });
   }
-
-  res.send(payload);
+  res.json({ mensaje: "Listado de mascotas registradas", mascotas });
 });
 
-app.get('/doble', (req, res) => {
-console.log(req.query);
 
-var payload = {
+app.post('/pet', (req, res) => {
+  const { serial, nombre, raza, edad, dueño, contacto } = req.body;
 
-    mensaje: "Hola Mundo!",  
-    hora: new Date().toLocaleTimeString()     
+ 
+  if (!serial || !nombre || !raza || !edad || !dueño || !contacto) {
+    return res.status(400).json({ mensaje: "Faltan datos para registrar la mascota " });
   }
 
-  res.send(payload);
-});
-
-app.post('/suma', (req, res) => {
-var variables = req.body;
-
-console.log(variables);
-var resultado_suma  = variables.num1 + variables.num2
-
-var payload = {
-    mensaje: "Hola Mundo!",  
-    rsultado : resultado_suma 
+  
+  const existe = mascotas.find(m => m.serial === serial);
+  if (existe) {
+    return res.status(409).json({ mensaje: "Ya existe una mascota con ese serial " });
   }
 
-  res.send(payload);
+
+  const nuevaMascota = { serial, nombre, raza, edad, dueño, contacto };
+  mascotas.push(nuevaMascota);
+
+  res.status(201).json({ mensaje: "Mascota registrada exitosamente ", mascota: nuevaMascota });
 });
 
-app.post('/petlink', (req, res)=>{
-  var datos =req.body;
 
-  console.log(datos);
-  var info ={
-    mensaje: "Nueva mascota",
-    Serial:datos.Ser,
-    Raza:datos.Raza,
-    Age:datos.Age,
-    Ubi:datos.Ubi,
-    Hum:datos.Hum,
-    ContNum:datos.ContNum
 
+app.get('/ubi', (req, res) => {
+  const serial = parseInt(req.query.serial);
+  if (serial) {
+    const ubicacion = ubicaciones.find(u => u.serial === serial);
+    if (!ubicacion) return res.status(404).json({ mensaje: "Ubicación no encontrada " });
+    return res.json({ mensaje: "Ubicación encontrada ", ubicacion });
   }
-  res.send(info);
+  res.json({ mensaje: "Ubicaciones actuales de las mascotas activas", ubicaciones });
 });
-app.get('/perdido', (req, res)=>{
 
-  console.log(req.query);
-  var info ={
-    mensaje: "Mascota Perdida",
-    Serial:132132,
-    Ubi:"Usequen",
-    Time:new Date().toLocaleTimeString(),
-    Battery:60,
-    ContNum:23132132
 
+app.get('/ubilost', (req, res) => {
+  const serial = parseInt(req.query.serial);
+  if (serial) {
+    const perdida = ubicacionesPerdidas.find(u => u.serial === serial);
+    if (!perdida) return res.status(404).json({ mensaje: "Mascota perdida no encontrada " });
+    return res.json({ mensaje: "Ubicación de mascota perdida encontrada ", perdida });
   }
-  res.send(info);
+  res.json({ mensaje: "Ubicaciones de mascotas perdidas ", ubicacionesPerdidas });
 });
-app.get('/encontrada', (req, res)=>{
 
-  console.log(req.query);
-  var info ={
-    mensaje: "Mascota Encontrada",
-    Serial:132132,
-    Ubi:"Nize",
-    Time:new Date().toLocaleTimeString(),
-    Battery:60
 
+app.get('/eCollares', (req, res) => {
+  const serial = parseInt(req.query.serial);
+  if (serial) {
+    const collar = estadoCollares.find(c => c.serial === serial);
+    if (!collar) return res.status(404).json({ mensaje: "Estado de collar no encontrado " });
+    return res.json({ mensaje: "Estado del collar encontrado ", collar });
   }
-  res.send(info);
+  res.json({ mensaje: "Estado funcional de cada collar ", estadoCollares });
 });
+
 app.listen(port, () => {
-  console.log(`Example app listening on port ${port}`);
+  console.log(`Servidor PetLink ejecutándose en http://localhost:${port}`);
 });
