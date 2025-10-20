@@ -1,19 +1,26 @@
 //////////////////////////////////////////////////////////
-// PETLINK DATABASE MODEL v4 - Mongo Version
+// PETLINK API v5
 // Autor: Jair
-// Adaptado para MongoDB usando Mongoose
+// Backend con Express + MongoDB
+// Modelo adaptado desde el diseño relacional (v4)
+// CRUD: roles, tipos_usuarios, usuarios, mascotas, dispositivos
+// GET-only: mediciones, ubicaciones_historicos, eventos
+// 🔐 Mejora: contraseñas cifradas con bcryptjs
+// 🚦 Inicialización automática de roles
 //////////////////////////////////////////////////////////
 
-const express = require('express');
-const cors = require('cors');
-const mongoose = require('mongoose');
-const app = express();
-const port = 3000;
+const express = require("express");
+const mongoose = require("mongoose");
+const cors = require("cors");
+const bcrypt = require("bcryptjs");
 
+const app = express();
 app.use(express.json());
 app.use(cors());
-app.use(express.urlencoded({ extended: true }));
 
+// ------------------------------------------------------
+// 🔌 Conexión a MongoDB
+// ------------------------------------------------------
 // URI de conexión
 const MONGO_URI = "mongodb+srv://Jairsito1104:Pdhijhnm45*@cluster0.yivafrn.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0";
 
@@ -22,54 +29,68 @@ mongoose.connect(MONGO_URI, { dbName: 'Petlink' })
   .then(() => console.log("✅ Conectado a MongoDB (Petlink)"))
   .catch((err) => console.error("❌ Error conectando a MongoDB:", err.message));
 
+// ------------------------------------------------------
+// 📦 Definición de Esquemas
+// ------------------------------------------------------
 
-
-// Tabla roles
-const roleSchema = new mongoose.Schema({
+// --- ROLES ---
+const rolSchema = new mongoose.Schema({
   nombre: { type: String, unique: true, required: true },
   descripcion: String,
   nivel: Number
 });
-const Role = mongoose.model('roles', roleSchema);
 
-// Tabla tipos_usuarios
+// --- TIPOS_USUARIOS ---
 const tipoUsuarioSchema = new mongoose.Schema({
   nombre: { type: String, unique: true, required: true },
   descripcion: String
 });
-const TipoUsuario = mongoose.model('tipos_usuarios', tipoUsuarioSchema);
 
-// Tabla usuarios
+// --- USUARIOS ---
 const usuarioSchema = new mongoose.Schema({
-  rol_id: { type: mongoose.Schema.Types.ObjectId, ref: 'roles' },
+  rol_id: { type: mongoose.Schema.Types.ObjectId, ref: "roles" },
   nombre: String,
   numero_contacto: String,
   contrasena_: String,
   correo: String,
   fecha_registro: { type: Date, default: Date.now }
 });
-const Usuario = mongoose.model('usuarios', usuarioSchema);
 
-// Tabla mascotas
+// 🔒 Hook para encriptar contraseñas antes de guardar
+usuarioSchema.pre("save", async function (next) {
+  if (!this.isModified("contrasena_")) return next();
+  try {
+    const salt = await bcrypt.genSalt(10);
+    this.contrasena_ = await bcrypt.hash(this.contrasena_, salt);
+    next();
+  } catch (err) {
+    next(err);
+  }
+});
+
+// 🔑 Método para comparar contraseñas
+usuarioSchema.methods.compararContrasena = function (contrasenaPlano) {
+  return bcrypt.compare(contrasenaPlano, this.contrasena_);
+};
+
+// --- MASCOTAS ---
 const mascotaSchema = new mongoose.Schema({
   serial: { type: String, unique: true, required: true },
   nombre_mascota: String,
   raza_perro: String,
   edad_perro: Number
 });
-const Mascota = mongoose.model('mascotas', mascotaSchema);
 
-// Tabla dispositivos
+// --- DISPOSITIVOS ---
 const dispositivoSchema = new mongoose.Schema({
   serial: { type: String, unique: true, required: true },
   estado: String,
   fecha_registro: { type: Date, default: Date.now }
 });
-const Dispositivo = mongoose.model('dispositivos', dispositivoSchema);
 
-// Tabla mediciones
+// --- MEDICIONES ---
 const medicionSchema = new mongoose.Schema({
-  dispositivo_id: { type: mongoose.Schema.Types.ObjectId, ref: 'dispositivos' },
+  dispositivo_id: { type: mongoose.Schema.Types.ObjectId, ref: "dispositivos" },
   fecha: { type: Date, default: Date.now },
   movimiento: Boolean,
   ubicacion_lat: Number,
@@ -78,47 +99,124 @@ const medicionSchema = new mongoose.Schema({
   estado_broche: Boolean,
   bateria: Number
 });
-const Medicion = mongoose.model('mediciones', medicionSchema);
 
-// Tabla ubicaciones_historicos
-const ubicacionSchema = new mongoose.Schema({
-  dispositivo_id: { type: mongoose.Schema.Types.ObjectId, ref: 'dispositivos' },
+// --- UBICACIONES HISTÓRICOS ---
+const ubicacionHistoricoSchema = new mongoose.Schema({
+  dispositivo_id: { type: mongoose.Schema.Types.ObjectId, ref: "dispositivos" },
   fecha: { type: Date, default: Date.now },
   latitud: Number,
   longitud: Number
 });
-const Ubicacion = mongoose.model('ubicaciones_historicos', ubicacionSchema);
 
-// Tabla eventos
+// --- EVENTOS ---
 const eventoSchema = new mongoose.Schema({
-  usuario_id: { type: mongoose.Schema.Types.ObjectId, ref: 'usuarios' },
-  dispositivo_id: { type: mongoose.Schema.Types.ObjectId, ref: 'dispositivos' },
+  usuario_id: { type: mongoose.Schema.Types.ObjectId, ref: "usuarios" },
+  dispositivo_id: { type: mongoose.Schema.Types.ObjectId, ref: "dispositivos" },
   fecha: { type: Date, default: Date.now },
-  hora: String,
+  hora: Number,
   tipo_evento: String,
   descripcion: String,
   estado: String
 });
-const Evento = mongoose.model('eventos', eventoSchema);
 
+// ------------------------------------------------------
+// 🧱 Modelos
+// ------------------------------------------------------
+const Rol = mongoose.model("roles", rolSchema);
+const TipoUsuario = mongoose.model("tipos_usuarios", tipoUsuarioSchema);
+const Usuario = mongoose.model("usuarios", usuarioSchema);
+const Mascota = mongoose.model("mascotas", mascotaSchema);
+const Dispositivo = mongoose.model("dispositivos", dispositivoSchema);
+const Medicion = mongoose.model("mediciones", medicionSchema);
+const UbicacionHistorico = mongoose.model("ubicaciones_historicos", ubicacionHistoricoSchema);
+const Evento = mongoose.model("eventos", eventoSchema);
 
-async function crearColecciones() {
-  const modelos = [Role, TipoUsuario, Usuario, Mascota, Dispositivo, Medicion, Ubicacion, Evento];
-  for (const modelo of modelos) {
-    await modelo.createCollection(); // crea la colección vacía si no existe
+// ------------------------------------------------------
+// 🚦 Inicializar roles
+// ------------------------------------------------------
+async function inicializarRoles() {
+  const rolesIniciales = [
+    { nombre: "admin", descripcion: "Administradores del sistema", nivel: 4 },
+    { nombre: "dueño", descripcion: "Dueño de las mascotas", nivel: 3 },
+    { nombre: "guarderia", descripcion: "Guardería o veterinaria, acceso a muchas mascotas", nivel: 2 },
+    { nombre: "cuidador", descripcion: "Cuidador, solo ve la ubicación de la mascota", nivel: 1 }
+  ];
+
+  for (const rolData of rolesIniciales) {
+    const existe = await Rol.findOne({ nombre: rolData.nombre });
+    if (!existe) {
+      await new Rol(rolData).save();
+      console.log(`✅ Rol '${rolData.nombre}' creado`);
+    }
   }
-  console.log("📁 Colecciones creadas en MongoDB (Petlink)");
 }
 
-mongoose.connection.once('open', async () => {
-  await crearColecciones();
+// Ejecutar la inicialización después de conectar a MongoDB
+mongoose.connection.once("open", () => {
+  inicializarRoles();
 });
 
-app.get('/', (req, res) => {
-  res.send({ mensaje: "Servidor PetLink activo y colecciones listas 🚀" });
-});
+// ------------------------------------------------------
+// 🛠️ Funciones de rutas genéricas
+// ------------------------------------------------------
+function crearRutasCRUD(modelo, nombre) {
+  const ruta = `/api/${nombre}`;
 
+  app.get(ruta, async (req, res) => {
+    const data = await modelo.find();
+    res.json(data);
+  });
 
-app.listen(port, () => {
-  console.log(`🌐 Servidor PetLink ejecutándose en http://localhost:${port}`);
-});
+  app.post(ruta, async (req, res) => {
+    try {
+      const nuevo = new modelo(req.body);
+      const guardado = await nuevo.save();
+      res.status(201).json(guardado);
+    } catch (err) {
+      res.status(400).json({ error: err.message });
+    }
+  });
+
+  app.put(`${ruta}/:id`, async (req, res) => {
+    try {
+      const actualizado = await modelo.findByIdAndUpdate(req.params.id, req.body, { new: true });
+      res.json(actualizado);
+    } catch (err) {
+      res.status(400).json({ error: err.message });
+    }
+  });
+
+  app.delete(`${ruta}/:id`, async (req, res) => {
+    try {
+      await modelo.findByIdAndDelete(req.params.id);
+      res.json({ mensaje: `${nombre} eliminado correctamente` });
+    } catch (err) {
+      res.status(400).json({ error: err.message });
+    }
+  });
+}
+
+function crearRutaGet(modelo, nombre) {
+  const ruta = `/api/${nombre}`;
+  app.get(ruta, async (req, res) => res.json(await modelo.find()));
+}
+
+// ------------------------------------------------------
+// 🚀 Crear rutas
+// ------------------------------------------------------
+crearRutasCRUD(Rol, "roles");
+crearRutasCRUD(TipoUsuario, "tipos_usuarios");
+crearRutasCRUD(Usuario, "usuarios");
+crearRutasCRUD(Mascota, "mascotas");
+crearRutasCRUD(Dispositivo, "dispositivos");
+
+// Solo GET
+crearRutaGet(Medicion, "mediciones");
+crearRutaGet(UbicacionHistorico, "ubicaciones_historicos");
+crearRutaGet(Evento, "eventos");
+
+// ------------------------------------------------------
+// 🧠 Puerto
+// ------------------------------------------------------
+const PORT = 3000;
+app.listen(PORT, () => console.log(`⚙️ Servidor escuchando en http://localhost:${PORT}`));
