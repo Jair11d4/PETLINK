@@ -1,12 +1,38 @@
 const express = require('express');
+const cors = require('cors');
+const mongoose = require('mongoose'); 
 const app = express();
 const port = 3000;
 
 app.use(express.json());
+app.use(cors())
 app.use(express.urlencoded({ extended: true }));
 
+const MONGO_URI = "mongodb+srv://Jairsito1104:Pdhijhnm45*@cluster0.yivafrn.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"
 
-let mascotas = [
+mongoose.connect(MONGO_URI,{
+  dbname:'Petlink'
+}).then(()=>{
+  console.log("Conectado a mongo");
+
+
+}).catch((err)=>{
+  console.log("Error conectadndo a Mongo",err.message);
+})
+
+const usuariosschema =new mongoose.Schema({
+  id : {type:String,required:true},
+
+},
+{
+  timestamps : true
+})
+
+const user = mongoose.model('Usuario',usuariosschema)
+
+
+
+var mascotas = [
   { serial: 1001, nombre: "Luna", raza: "Labrador", edad: 3, dueño: "Ana", contacto: 3254855896 },
   { serial: 1002, nombre: "Rocky", raza: "Bulldog", edad: 4, dueño: "Carlos", contacto: 3115458976 },
   { serial: 1003, nombre: "Milo", raza: "Beagle", edad: 2, dueño: "Laura", contacto: 3106245547 },
@@ -14,7 +40,7 @@ let mascotas = [
   { serial: 1005, nombre: "Coco", raza: "Poodle", edad: 1, dueño: "Sofía", contacto: 3209541506 }
 ];
 
-let ubicaciones = [
+var ubicaciones = [
   { serial: 1001, lat: 4.710989, lon: -74.072092, horaTransmision: "10:15 AM", enMovimiento: true },
   { serial: 1002, lat: 4.748116, lon: -74.056753, horaTransmision: "10:10 AM", enMovimiento: false },
   { serial: 1003, lat: 4.667897, lon: -74.057123, horaTransmision: "10:18 AM", enMovimiento: true },
@@ -22,7 +48,7 @@ let ubicaciones = [
   { serial: 1005, lat: 4.721223, lon: -74.069951, horaTransmision: "10:20 AM", enMovimiento: true }
 ];
 
-let ubicacionesPerdidas = [
+var ubicacionesPerdidas = [
   { serial: 2001, lat: 4.658222, lon: -74.093333, horaTransmision: "09:58 AM", enMovimiento: true },
   { serial: 2002, lat: 4.723444, lon: -74.049882, horaTransmision: "09:45 AM", enMovimiento: false },
   { serial: 2003, lat: 4.699112, lon: -74.078120, horaTransmision: "09:51 AM", enMovimiento: true },
@@ -30,7 +56,7 @@ let ubicacionesPerdidas = [
   { serial: 2005, lat: 4.706332, lon: -74.067772, horaTransmision: "09:53 AM", enMovimiento: true }
 ];
 
-let estadoCollares = [
+var estadoCollares = [
   { serial: 1001, hiloConductor: true, sensorMagnetico: true, antenasOk: true },
   { serial: 1002, hiloConductor: true, sensorMagnetico: false, antenasOk: true },
   { serial: 1003, hiloConductor: false, sensorMagnetico: true, antenasOk: true },
@@ -40,6 +66,10 @@ let estadoCollares = [
 
 
 app.get('/', (req, res) => {
+  res.send({ mensaje: "Servidor PetLink activo " });
+});
+
+app.get('/hora', (req, res) => {
   res.send({ mensaje: "Servidor PetLink activo " });
 });
 
