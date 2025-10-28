@@ -3,12 +3,14 @@
 // Autor: Jair
 // Backend con Express + MongoDB
 // Modelo adaptado desde el diseño relacional (v4)
-// CRUD: roles, tipos_usuarios, usuarios, mascotas, dispositivos
-// GET-only: mediciones, ubicaciones_historicos, eventos
+// CRUD simplificado: solo POST y GET
 // 🔐 Mejora: contraseñas cifradas con bcryptjs
 // 🚦 Inicialización automática de roles
 //////////////////////////////////////////////////////////
 
+
+require("dotenv").config();
+const MONGO_URI = process.env.MONGO_URI;
 const express = require("express");
 const mongoose = require("mongoose");
 const cors = require("cors");
@@ -21,11 +23,8 @@ app.use(cors());
 // ------------------------------------------------------
 // 🔌 Conexión a MongoDB
 // ------------------------------------------------------
-// URI de conexión
-const MONGO_URI = "mongodb+srv://Jairsito1104:Pdhijhnm45*@cluster0.yivafrn.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0";
 
-// Conexión a MongoDB
-mongoose.connect(MONGO_URI, { dbName: 'Petlink' })
+mongoose.connect(process.env.MONGO_URI)
   .then(() => console.log("✅ Conectado a MongoDB (Petlink)"))
   .catch((err) => console.error("❌ Error conectando a MongoDB:", err.message));
 
@@ -56,7 +55,7 @@ const usuarioSchema = new mongoose.Schema({
   fecha_registro: { type: Date, default: Date.now }
 });
 
-// 🔒 Hook para encriptar contraseñas antes de guardar
+// 🔒 Encriptar contraseñas
 usuarioSchema.pre("save", async function (next) {
   if (!this.isModified("contrasena_")) return next();
   try {
@@ -67,11 +66,6 @@ usuarioSchema.pre("save", async function (next) {
     next(err);
   }
 });
-
-// 🔑 Método para comparar contraseñas
-usuarioSchema.methods.compararContrasena = function (contrasenaPlano) {
-  return bcrypt.compare(contrasenaPlano, this.contrasena_);
-};
 
 // --- MASCOTAS ---
 const mascotaSchema = new mongoose.Schema({
@@ -151,22 +145,27 @@ async function inicializarRoles() {
   }
 }
 
-// Ejecutar la inicialización después de conectar a MongoDB
 mongoose.connection.once("open", () => {
   inicializarRoles();
 });
 
 // ------------------------------------------------------
-// 🛠️ Funciones de rutas genéricas
+// 🛠️ Función CRUD (solo POST y GET)
 // ------------------------------------------------------
 function crearRutasCRUD(modelo, nombre) {
   const ruta = `/api/${nombre}`;
 
+  // GET: obtener todos
   app.get(ruta, async (req, res) => {
-    const data = await modelo.find();
-    res.json(data);
+    try {
+      const data = await modelo.find();
+      res.json(data);
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
   });
 
+  // POST: crear nuevo
   app.post(ruta, async (req, res) => {
     try {
       const nuevo = new modelo(req.body);
@@ -176,47 +175,124 @@ function crearRutasCRUD(modelo, nombre) {
       res.status(400).json({ error: err.message });
     }
   });
-
-  app.put(`${ruta}/:id`, async (req, res) => {
-    try {
-      const actualizado = await modelo.findByIdAndUpdate(req.params.id, req.body, { new: true });
-      res.json(actualizado);
-    } catch (err) {
-      res.status(400).json({ error: err.message });
-    }
-  });
-
-  app.delete(`${ruta}/:id`, async (req, res) => {
-    try {
-      await modelo.findByIdAndDelete(req.params.id);
-      res.json({ mensaje: `${nombre} eliminado correctamente` });
-    } catch (err) {
-      res.status(400).json({ error: err.message });
-    }
-  });
-}
-
-function crearRutaGet(modelo, nombre) {
-  const ruta = `/api/${nombre}`;
-  app.get(ruta, async (req, res) => res.json(await modelo.find()));
 }
 
 // ------------------------------------------------------
-// 🚀 Crear rutas
+// 🚀 Crear rutas (todas las colecciones usan la misma función)
 // ------------------------------------------------------
 crearRutasCRUD(Rol, "roles");
 crearRutasCRUD(TipoUsuario, "tipos_usuarios");
 crearRutasCRUD(Usuario, "usuarios");
 crearRutasCRUD(Mascota, "mascotas");
 crearRutasCRUD(Dispositivo, "dispositivos");
+crearRutasCRUD(Medicion, "mediciones");
+crearRutasCRUD(UbicacionHistorico, "ubicaciones_historicos");
+crearRutasCRUD(Evento, "eventos");
 
-// Solo GET
-crearRutaGet(Medicion, "mediciones");
-crearRutaGet(UbicacionHistorico, "ubicaciones_historicos");
-crearRutaGet(Evento, "eventos");
+
+// ------------------------------------------------------
+// 🌐 Servicios del dispositivo (para ESP32)
+// ------------------------------------------------------
+
+// 1️⃣ Autenticación del dispositivo
+app.post("/api/dispositivo/login", async (req, res) => {
+  try {
+    const { serial } = req.body;
+    const dispositivo = await Dispositivo.findOne({ serial });
+    if (!dispositivo) return res.status(404).json({ error: "Dispositivo no registrado" });
+    res.json({ message: "Autenticado", id: dispositivo._id });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 2️⃣ Envío de datos de sensores (mediciones)
+app.post("/api/dispositivo/data", async (req, res) => {
+  try {
+    const { serial, data } = req.body;
+    const dispositivo = await Dispositivo.findOne({ serial });
+    if (!dispositivo) return res.status(404).json({ error: "Dispositivo no encontrado" });
+
+    const nuevaMedicion = new Medicion({
+      dispositivo_id: dispositivo._id,
+      ...data
+    });
+
+    await nuevaMedicion.save();
+    res.json({ message: "Datos recibidos", id: nuevaMedicion._id });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 3️⃣ Reporte de eventos del dispositivo
+app.post("/api/dispositivo/evento", async (req, res) => {
+  try {
+    const { serial, tipo_evento, descripcion } = req.body;
+    const dispositivo = await Dispositivo.findOne({ serial });
+    if (!dispositivo) return res.status(404).json({ error: "Dispositivo no encontrado" });
+
+    const evento = new Evento({
+      dispositivo_id: dispositivo._id,
+      tipo_evento, // ej: “collar_abierto”, “movimiento_detectado”, “bajo_bateria”
+      descripcion,
+      estado: "reportado"
+    });
+
+    await evento.save();
+    res.json({ message: "Evento registrado", id: evento._id });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 4️⃣ Configuración dinámica (qué hacer cuando el perro se pierde)
+app.get("/api/dispositivo/config/:serial", async (req, res) => {
+  try {
+    const { serial } = req.params;
+    const dispositivo = await Dispositivo.findOne({ serial });
+    if (!dispositivo) return res.status(404).json({ error: "Dispositivo no encontrado" });
+
+        const configuracion = {
+      modo_perdido: {
+        leds: true,
+        pantalla: true,
+        buzzer: true
+      },
+      modo_normal: {
+        verificar_sensores: true,
+        frecuencia_check: 5 // segundos
+      }
+    };
+
+    res.json(configuracion);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 5️⃣ Comando directo desde el servidor (para apagar, reiniciar, etc.)
+app.get("/api/dispositivo/comando/:serial", async (req, res) => {
+  try {
+    const { serial } = req.params;
+    const dispositivo = await Dispositivo.findOne({ serial });
+    if (!dispositivo) return res.status(404).json({ error: "Dispositivo no encontrado" });
+
+    // 🧭 Comando de control (se puede cambiar en tiempo real desde panel web)
+    const comando = {
+      accion: "ninguno", // opciones: “apagar”, “reiniciar”, “modo_ahorro”
+      timestamp: new Date()
+    };
+
+    res.json(comando);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 
 // ------------------------------------------------------
 // 🧠 Puerto
 // ------------------------------------------------------
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`⚙️ Servidor escuchando en http://localhost:${PORT}`));
