@@ -1,0 +1,215 @@
+{
+  "info": {
+    "name": "Petlink API v5",
+    "_postman_id": "petlink-v5-collection",
+    "description": "Colección oficial del backend Petlink (Node.js + MongoDB + ESP32)",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Roles",
+      "item": [
+        {
+          "name": "GET roles",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/roles"
+          }
+        },
+        {
+          "name": "POST rol",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"\"\n}"
+            },
+            "url": "{{baseUrl}}/api/roles"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Tipos de usuarios",
+      "item": [
+        {
+          "name": "GET tipos_usuarios",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/tipos_usuarios"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Usuarios",
+      "item": [
+        {
+          "name": "GET usuarios",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/usuarios"
+          }
+        },
+        {
+          "name": "POST usuario",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"\",\n  \"numero_contacto\": \"\",\n  \"correo\": \"\",\n  \"contrasena_\": \"\",\n  \"rol_id\": \"\"\n}"
+            },
+            "url": "{{baseUrl}}/api/usuarios"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Mascotas",
+      "item": [
+        {
+          "name": "GET mascotas",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/mascotas"
+          }
+        },
+        {
+          "name": "POST mascota",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"\",\n  \"tipo\": \"\",\n  \"raza\": \"\",\n  \"edad\": 0,\n  \"dueno_id\": \"\"\n}"
+            },
+            "url": "{{baseUrl}}/api/mascotas"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Dispositivos",
+      "item": [
+        {
+          "name": "GET dispositivos",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/dispositivos"
+          }
+        },
+        {
+          "name": "POST dispositivo",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"serial\": \"\",\n  \"estado\": \"\",\n  \"mascota_id\": \"\"\n}"
+            },
+            "url": "{{baseUrl}}/api/dispositivos"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Mediciones",
+      "item": [
+        {
+          "name": "GET mediciones",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/mediciones"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Ubicaciones históricas",
+      "item": [
+        {
+          "name": "GET ubicaciones_historicos",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/ubicaciones_historicos"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Eventos",
+      "item": [
+        {
+          "name": "GET eventos",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/eventos"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Servicios del dispositivo (ESP32)",
+      "item": [
+        {
+          "name": "Login dispositivo",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"serial\": \"\"\n}"
+            },
+            "url": "{{baseUrl}}/api/dispositivo/login"
+          }
+        },
+        {
+          "name": "Enviar datos sensores",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"serial\": \"\",\n  \"data\": {\n    \"movimiento\": true,\n    \"ubicacion_lat\": 6.2442,\n    \"ubicacion_lng\": -75.5812,\n    \"estado_collar\": true,\n    \"estado_broche\": false,\n    \"bateria\": 85\n  }\n}"
+            },
+            "url": "{{baseUrl}}/api/dispositivo/data"
+          }
+        },
+        {
+          "name": "Reportar evento",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"serial\": \"\",\n  \"tipo_evento\": \"collar_abierto\",\n  \"descripcion\": \"El collar fue abierto manualmente\"\n}"
+            },
+            "url": "{{baseUrl}}/api/dispositivo/evento"
+          }
+        },
+        {
+          "name": "Obtener configuración",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/dispositivo/config/:serial"
+          }
+        },
+        {
+          "name": "Obtener comando",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/dispositivo/comando/:serial"
+          }
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000"
+    }
+  ]
+}
